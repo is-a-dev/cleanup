@@ -1,0 +1,20 @@
+{
+  "name": "is-a-dev-cleanup",
+  "version": "1.0.0",
+  "description": "A script which will remove domains that are not resolvable.",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/is-a-dev/cleanup.git"
+  },
+  "author": "William Harrison",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/is-a-dev/cleanup/issues"
+  },
+  "homepage": "https://github.com/is-a-dev/cleanup#readme",
+  "dependencies": {
+    "@octokit/rest": "^20.0.2",
+    "axios": "^1.6.5"
+  }
+}
