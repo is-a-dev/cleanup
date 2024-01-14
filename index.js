@@ -1,6 +1,7 @@
 const axios = require("axios");
 const { Octokit } = require("@octokit/rest");
 
+const githubUsername = "GITHUB_USERNAME";
 const githubToken = "GITHUB_PAT_TOKEN";
 const apiUrl = "https://raw-api.is-a.dev/";
 
@@ -16,7 +17,6 @@ async function fetchData() {
 
         const invalidDomains = [];
         const invalidDomainData = [];
-        const invalidHosting = [];
 
         for (const entry of data) {
             const domain = entry.domain;
@@ -30,17 +30,18 @@ async function fetchData() {
             try {
                 await axios.head(domainUrl);
             } catch (error) {
+                // Skip if the domain's SSL certificate is invalid
                 if (error.code === "ERR_TLS_CERT_ALTNAME_INVALID") continue;
-                if (entry.usesHosting) invalidHosting.push(domain);
 
                 console.error(`[ERROR] ${domain}: ${error.message}`);
+
                 invalidDomains.push(entry.subdomain);
                 invalidDomainData.push(entry);
             }
         }
 
         if (invalidDomains.length > 0) {
-            await forkAndOpenPR(invalidDomains, invalidDomainData, invalidHosting);
+            await forkAndOpenPR(invalidDomains, invalidDomainData);
         } else {
             console.log("No invalid domains found.");
         }
@@ -49,7 +50,7 @@ async function fetchData() {
     }
 }
 
-async function forkAndOpenPR(invalidDomains, invalidDomainData, invalidHosting) {
+async function forkAndOpenPR(invalidDomains, invalidDomainData) {
     const octokit = new Octokit({ auth: githubToken });
 
     try {
@@ -78,25 +79,13 @@ ${invalidDomainData.map((e) => `@${e.owner.username}: ${e.domain}(https://${e.do
 
 </details>
 `,
-            head: "is-a-dev-bot:main",
+            head: `${githubUsername}:main`,
             base: "main",
         });
 
         console.log(`Pull request opened: ${prResponse.data.html_url}`);
     } catch (error) {
         console.error(`[ERROR] Forking repository or opening PR: ${error.message}`);
-    }
-
-    // Save invalidHosting to txt file
-    if(invalidHosting.length > 0) {
-        const fs = require("fs");
-
-        const file = `invalidHosting-${Date.now()}.txt`;
-
-        fs.writeFile(file, invalidHosting.join("\n"), function (err) {
-            if (err) return console.log(err);
-            console.log(`Invalid domains using hosting have been saved to ${file}`);
-        });
     }
 }
 
