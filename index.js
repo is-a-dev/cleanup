@@ -3,10 +3,10 @@ const { Octokit } = require("@octokit/rest");
 
 const githubUsername = "GITHUB_USERNAME";
 const githubToken = "GITHUB_PAT_TOKEN";
-const apiUrl = "https://raw-api.is-a.dev/";
+const apiUrl = "https://raw-api.is-a.dev";
 
 let amountScanned = 0;
-const domainsToSkip = ["@"];
+const domainsToSkip = ["@", "www"];
 
 async function fetchData() {
     try {
@@ -26,6 +26,19 @@ async function fetchData() {
             if (!entry.record.A && !entry.record.AAAA && !entry.record.CNAME && !entry.record.URL) continue;
             // Skip if the domain is in the skip list
             if (domainsToSkip.includes(entry.subdomain)) continue;
+
+            // If nested subdomain, check root subdomain exists
+            if (entry.subdomain.split(".").length > 2) {
+                const rootSubdomain = entry.subdomain.split(".").slice(1).join(".");
+                
+                if (!data.some((e) => e.subdomain === rootSubdomain)) {
+                    console.error(`[ERROR] ${domain}: Root subdomain ${rootSubdomain} does not exist`);
+
+                    invalidDomains.push(entry.subdomain);
+                    invalidDomainData.push(entry);
+                    continue;
+                }
+            }
 
             try {
                 await axios.head(domainUrl);
@@ -69,8 +82,9 @@ async function forkAndOpenPR(invalidDomains, invalidDomainData) {
         const prResponse = await octokit.pulls.create({
             owner: "is-a-dev",
             repo: "register",
-            title: "[no-rm] remove unresolvable domains",
-            body: `Scanned **${amountScanned}** domain${amountScanned === 1 ? "" : "s"} and found **${invalidDomains.length}** unresolvable domain${invalidDomains.length === 1 ? "" : "s"}.
+            title: "[no-rm] domain cleanup",
+            body: `These domains either were not resolveable or for nested subdomains where the root subdomain did not exist.
+Scanned **${amountScanned}** domain${amountScanned === 1 ? "" : "s"} and found **${invalidDomains.length}** invalid domain${invalidDomains.length === 1 ? "" : "s"}.
 
 <details>
 <summary>Domain Owners</summary>
