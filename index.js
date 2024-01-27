@@ -6,7 +6,9 @@ const githubToken = "GITHUB_PAT_TOKEN";
 const apiUrl = "https://raw-api.is-a.dev";
 
 let amountScanned = 0;
+
 const domainsToSkip = ["@", "www"];
+const usernamesToSkip = ["is-a-dev", "is-a-dev-bot"];
 
 async function fetchData() {
     try {
@@ -26,11 +28,13 @@ async function fetchData() {
             if (!entry.record.A && !entry.record.AAAA && !entry.record.CNAME && !entry.record.URL) continue;
             // Skip if the domain is in the skip list
             if (domainsToSkip.includes(entry.subdomain)) continue;
+            // Skip if the owner is in the skip list
+            if (usernamesToSkip.includes(entry.owner.username)) continue;
 
             // If nested subdomain, check root subdomain exists
             if (entry.subdomain.split(".").length > 2) {
-                const rootSubdomain = entry.subdomain.split(".").slice(1).join(".");
-                
+                const rootSubdomain = entry.subdomain.split(".").pop();
+
                 if (!data.some((e) => e.subdomain === rootSubdomain)) {
                     console.error(`[ERROR] ${domain}: Root subdomain ${rootSubdomain} does not exist`);
 
@@ -46,10 +50,15 @@ async function fetchData() {
                 // Skip if the domain's SSL certificate is invalid
                 if (error.code === "ERR_TLS_CERT_ALTNAME_INVALID") continue;
 
-                console.error(`[ERROR] ${domain}: ${error.message}`);
+                // Re-attempt to double check the domain is invalid
+                try {
+                    await axios.head(domainUrl);
+                } catch (error) {
+                    console.error(`[ERROR] ${domain}: ${error.message}`);
 
-                invalidDomains.push(entry.subdomain);
-                invalidDomainData.push(entry);
+                    invalidDomains.push(entry.subdomain);
+                    invalidDomainData.push(entry);
+                }
             }
         }
 
