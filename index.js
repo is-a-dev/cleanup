@@ -10,6 +10,8 @@ let amountScanned = 0;
 const domainsToSkip = ["LIST", "OF", "SUBDOMAINS"];
 const usernamesToSkip = ["LIST", "OF", "USERNAMES"];
 
+const runTimestamp = Date.now();
+
 async function fetchData() {
     try {
         const response = await axios.get(apiUrl);
@@ -32,11 +34,11 @@ async function fetchData() {
             if (usernamesToSkip.includes(entry.owner.username)) continue;
 
             // If nested subdomain, check root subdomain exists
-            if (entry.subdomain.split(".").length > 2) {
+            if (entry.subdomain.split(".").length > 1) {
                 const rootSubdomain = entry.subdomain.split(".").pop();
 
                 if (!data.some((e) => e.subdomain === rootSubdomain)) {
-                    console.error(`[ERROR] ${domain}: Root subdomain ${rootSubdomain} does not exist`);
+                    console.error(`[INFO] ${domain}: Root subdomain does not exist, deleting nested subdomain.`);
 
                     invalidDomains.push(entry.subdomain);
                     invalidDomainData.push(entry);
@@ -58,6 +60,18 @@ async function fetchData() {
 
                     invalidDomains.push(entry.subdomain);
                     invalidDomainData.push(entry);
+
+                    // Find nested subdomains and delete those too as long as this is a root subdomain
+                    if (entry.subdomain.split(".").length === 1) {
+                        const nestedSubdomains = data.filter((e) => e.subdomain.endsWith(`.${entry.subdomain}`));
+
+                        for (const nestedSubdomain of nestedSubdomains) {
+                            console.log(`[INFO] ${nestedSubdomain.domain}: Root subdomain is invalid, deleting nested subdomain.`);
+
+                            invalidDomains.push(nestedSubdomain.subdomain);
+                            invalidDomainData.push(nestedSubdomain);
+                        }
+                    }
                 }
             }
         }
@@ -82,10 +96,20 @@ async function forkAndOpenPR(invalidDomains, invalidDomainData) {
             repo: "register",
         });
 
-        const forkedRepoFullName = forkResponse.data.full_name;
+        console.log(`Forked is-a-dev/register to ${forkResponse.data.full_name}`);
+
+        // Create new branch using runTimestamp variable
+        const branchRes = await octokit.git.createRef({
+            owner: githubUsername,
+            repo: forkResponse.data.name,
+            ref: `refs/heads/cleanup-${runTimestamp}`,
+            sha: "main",
+        });
+
+        console.log(`Created new branch: ${branchRes.data.ref}`);
 
         // Make changes in the forked repository
-        await deleteInvalidFiles(invalidDomains, forkedRepoFullName);
+        await deleteInvalidFiles(invalidDomains, forkResponse.data.full_name);
 
         // Open a pull request
         const prResponse = await octokit.pulls.create({
@@ -102,7 +126,7 @@ ${invalidDomainData.map((e) => `@${e.owner.username}: ${e.domain}(https://${e.do
 
 </details>
 `,
-            head: `${githubUsername}:main`,
+            head: `${githubUsername}:cleanup-${runTimestamp}`,
             base: "main",
         });
 
@@ -130,6 +154,7 @@ async function deleteInvalidFiles(invalidDomains, repoFullName) {
             await octokit.repos.deleteFile({
                 owner: repoFullName.split("/")[0],
                 repo: repoFullName.split("/")[1],
+                branch: `cleanup-${runTimestamp}`,
                 path: fileName,
                 message: `chore: remove ${domain}.is-a.dev`,
                 sha: sha,
