@@ -8,7 +8,7 @@ const apiUrl = "https://raw-api.is-a.dev";
 let amountScanned = 0;
 
 const domainsToSkip = ["@", "www"];
-const usernamesToSkip = ["is-a-dev", "is-a-dev-bot"];
+const usernamesToSkip = ["is-a-dev"];
 
 async function fetchData() {
     try {
