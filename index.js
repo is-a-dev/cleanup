@@ -62,18 +62,6 @@ async function fetchData() {
 
                     invalidDomains.push(entry.subdomain);
                     invalidDomainData.push(entry);
-
-                    // Find nested subdomains and delete those too as long as this is a root subdomain
-                    if (entry.subdomain.split(".").length === 1) {
-                        const nestedSubdomains = data.filter((e) => e.subdomain.endsWith(`.${entry.subdomain}`));
-
-                        for (const nestedSubdomain of nestedSubdomains) {
-                            console.log(`[INFO] ${nestedSubdomain.domain}: Root subdomain is invalid, deleting nested subdomain.`);
-
-                            invalidDomains.push(nestedSubdomain.subdomain);
-                            invalidDomainData.push(nestedSubdomain);
-                        }
-                    }
                 }
             }
         }
