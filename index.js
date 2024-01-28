@@ -1,4 +1,5 @@
 const axios = require("axios");
+const chalk = require("chalk");
 const { Octokit } = require("@octokit/rest");
 
 const githubUsername = "GITHUB_USERNAME";
@@ -19,7 +20,7 @@ async function fetchData() {
 
         amountScanned = data.length;
 
-    	console.log(`[INFO] Started scanning ${amountScanned} domains...`);
+        console.log(chalk.blueBright(`[INFO] Started scanning ${amountScanned} domains...`));
 
         const invalidDomains = [];
         const invalidDomainData = [];
@@ -29,26 +30,35 @@ async function fetchData() {
             const domainUrl = `https://${domain}`;
 
             // Skip if the domain is not pointing to a valid IP address
-            if (!entry.record.A && !entry.record.AAAA && !entry.record.CNAME && !entry.record.URL) continue;
+            if (!entry.record.A && !entry.record.AAAA && !entry.record.CNAME && !entry.record.URL) {
+                console.log(chalk.yellow(`[INFO] ${domain}: Skipping domain as it is not used for a website.`));
+                continue;
+            }
+
             // Skip if the domain is in the skip list
-            if (domainsToSkip.includes(entry.subdomain)) continue;
+            if (domainsToSkip.includes(entry.subdomain)) {
+                console.log(chalk.yellow(`[INFO] ${domain}: Skipping domain as it is on the domain skip list.`));
+                continue;
+            }
+
             // Skip if the owner is in the skip list
-            if (usernamesToSkip.includes(entry.owner.username)) continue;
+            if (usernamesToSkip.includes(entry.owner.username)) {
+                console.log(chalk.yellow(`[INFO] ${domain}: Skipping domain as the owner is on the username skip list.`));
+                continue;
+            }
 
             // If nested subdomain, check root subdomain exists
             if (entry.subdomain.split(".").length > 1) {
                 const rootSubdomain = entry.subdomain.split(".").pop();
 
                 if (!data.some((e) => e.subdomain === rootSubdomain)) {
-                    console.error(`[INFO] ${domain}: Root subdomain does not exist, deleting nested subdomain.`);
+                    console.log(chalk.red(`[ERROR] ${domain}: Root subdomain does not exist, deleting nested subdomain.`));
 
                     invalidDomains.push(entry.subdomain);
                     invalidDomainData.push(entry);
                     continue;
                 }
             }
-
-            console.log(`[INFO] Checking ${domain}...`);
 
             try {
                 await axios.head(domainUrl);
@@ -60,7 +70,7 @@ async function fetchData() {
                 try {
                     await axios.head(domainUrl);
                 } catch (error) {
-                    console.error(`[ERROR] ${domain}: ${error.message}`);
+                    console.log(chalk.red(`[ERROR] ${domain}: ${error.message}`));
 
                     invalidDomains.push(entry.subdomain);
                     invalidDomainData.push(entry);
@@ -71,10 +81,10 @@ async function fetchData() {
         if (invalidDomains.length > 0) {
             await forkAndOpenPR(invalidDomains, invalidDomainData);
         } else {
-            console.log("No invalid domains found.");
+            console.log(chalk.green("[INFO] No invalid domains found."));
         }
     } catch (error) {
-        console.error(`[ERROR] Fetching data: ${error.message}`);
+        console.log(chalk.red(`[ERROR] Fetching data: ${error.message}`));
     }
 }
 
@@ -88,7 +98,7 @@ async function forkAndOpenPR(invalidDomains, invalidDomainData) {
             repo: "register",
         });
 
-        console.log(`Forked is-a-dev/register to ${forkResponse.data.full_name}`);
+        console.log(chalk.blue(`[INFO] Forked is-a-dev/register to ${forkResponse.data.full_name}`));
 
         // Create new branch using runTimestamp variable
         const branchRes = await octokit.git.createRef({
@@ -98,10 +108,14 @@ async function forkAndOpenPR(invalidDomains, invalidDomainData) {
             sha: "main",
         });
 
-        console.log(`Created new branch: ${branchRes.data.ref}`);
+        console.log(chalk.blue(`Created new branch: ${branchRes.data.ref}`));
+
+        console.log(chalk.blue(`[INFO] Deleting invalid domains...`));
 
         // Make changes in the forked repository
         await deleteInvalidFiles(invalidDomains, forkResponse.data.full_name);
+
+        console.log(chalk.blue(`[INFO] Opening pull request...`));
 
         // Open a pull request
         const prResponse = await octokit.pulls.create({
@@ -122,9 +136,9 @@ ${invalidDomainData.map((e) => `@${e.owner.username}: ${e.domain}(https://${e.do
             base: "main",
         });
 
-        console.log(`Pull request opened: ${prResponse.data.html_url}`);
+        console.log(chalk.green(`[INFO] Pull request opened: ${prResponse.data.html_url}`));
     } catch (error) {
-        console.error(`[ERROR] Forking repository or opening PR: ${error.message}`);
+        console.log(chalk.red(`[ERROR] Forking repository, creating branch or opening PR: ${error.message}`));
     }
 }
 
@@ -152,13 +166,13 @@ async function deleteInvalidFiles(invalidDomains, repoFullName) {
                 sha: sha,
             });
 
-            console.log(`Deleted ${domain}.is-a.dev`);
+            console.log(chalk.blue(`[INFO] Deleted ${domain}.is-a.dev`));
         } catch (error) {
-            console.error(`[ERROR] Deleting ${domain}: ${error.message}`);
+            console.log(chalk.red(`[ERROR] Deleting ${domain}: ${error.message}`));
         }
     }
 }
 
 fetchData();
 
-setInterval(() => console.log("[INFO] Heartbeat check"), 120 * 1000);
+setInterval(() => console.log(chalk.yellow("[INFO] Heartbeat check")), 120 * 1000);
