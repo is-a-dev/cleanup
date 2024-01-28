@@ -48,6 +48,8 @@ async function fetchData() {
                 }
             }
 
+            console.log(`[INFO] Checking ${domain}...`);
+
             try {
                 await axios.head(domainUrl);
             } catch (error) {
@@ -158,3 +160,5 @@ async function deleteInvalidFiles(invalidDomains, repoFullName) {
 }
 
 fetchData();
+
+setInterval(() => console.log("[INFO] Heartbeat check"), 120 * 1000);
