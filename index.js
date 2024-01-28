@@ -19,6 +19,8 @@ async function fetchData() {
 
         amountScanned = data.length;
 
+    	console.log(`[INFO] Started scanning ${amountScanned} domains...`);
+
         const invalidDomains = [];
         const invalidDomainData = [];
 
