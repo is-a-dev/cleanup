@@ -11,8 +11,6 @@ let amountScanned = 0;
 const domainsToSkip = ["LIST", "OF", "SUBDOMAINS"];
 const usernamesToSkip = ["LIST", "OF", "USERNAMES"];
 
-const runTimestamp = Date.now();
-
 async function fetchData() {
     try {
         const response = await axios.get(apiUrl);
@@ -106,16 +104,6 @@ async function forkAndOpenPR(invalidDomains, invalidDomainData) {
 
         console.log(chalk.blue(`[INFO] Forked is-a-dev/register to ${forkResponse.data.full_name}`));
 
-        // Create new branch using runTimestamp variable
-        const branchRes = await octokit.git.createRef({
-            owner: githubUsername,
-            repo: forkResponse.data.name,
-            ref: `refs/heads/cleanup-${runTimestamp}`,
-            sha: "main",
-        });
-
-        console.log(chalk.blue(`Created new branch: ${branchRes.data.ref}`));
-
         console.log(chalk.blue(`[INFO] Deleting invalid domains...`));
 
         // Make changes in the forked repository
@@ -134,7 +122,7 @@ async function forkAndOpenPR(invalidDomains, invalidDomainData) {
 |-|-|-|
 ${invalidDomainData.map((i) => `| https://${e.domain} | @${i.owner.username} | \`${i.error}\` |`).join("\n")}
 `,
-            head: `${githubUsername}:cleanup-${runTimestamp}`,
+            head: `${githubUsername}:main`,
             base: "main",
         });
 
@@ -162,7 +150,7 @@ async function deleteInvalidFiles(invalidDomains, repoFullName) {
             await octokit.repos.deleteFile({
                 owner: repoFullName.split("/")[0],
                 repo: repoFullName.split("/")[1],
-                branch: `cleanup-${runTimestamp}`,
+                branch: "main",
                 path: fileName,
                 message: `chore: remove ${domain}.is-a.dev`,
                 sha: sha,
