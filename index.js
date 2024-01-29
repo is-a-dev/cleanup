@@ -25,7 +25,7 @@ async function fetchData() {
         const invalidDomains = [];
         const invalidDomainData = [];
 
-        for (const entry of data) {
+        for (let entry of data) {
             const domain = entry.domain;
             const domainUrl = `https://${domain}`;
 
@@ -56,6 +56,8 @@ async function fetchData() {
                 if (!data.some((e) => e.subdomain === rootSubdomain)) {
                     console.log(chalk.red(`[ERROR] ${domain}: Root subdomain does not exist, deleting nested subdomain.`));
 
+                    entry.error = "Root subdomain does not exist";
+
                     invalidDomains.push(entry.subdomain);
                     invalidDomainData.push(entry);
                     continue;
@@ -73,6 +75,8 @@ async function fetchData() {
                     await axios.head(domainUrl, { timeout: 5000 });
                 } catch (error) {
                     console.log(chalk.red(`[ERROR] ${domain}: ${error.message}`));
+
+                    entry.error = error.message;
 
                     invalidDomains.push(entry.subdomain);
                     invalidDomainData.push(entry);
@@ -124,15 +128,11 @@ async function forkAndOpenPR(invalidDomains, invalidDomainData) {
             owner: "is-a-dev",
             repo: "register",
             title: "[no-rm] domain cleanup",
-            body: `These domains either were not resolveable or for nested subdomains where the root subdomain did not exist.
-Scanned **${amountScanned}** domain${amountScanned === 1 ? "" : "s"} and found **${invalidDomains.length}** invalid domain${invalidDomains.length === 1 ? "" : "s"}.
+            body: `Scanned **${amountScanned}** domain${amountScanned === 1 ? "" : "s"} and found **${invalidDomains.length}** invalid domain${invalidDomains.length === 1 ? "" : "s"}.
 
-<details>
-<summary>Domain Owners</summary>
-
-${invalidDomainData.map((e) => `@${e.owner.username}: ${e.domain}(https://${e.domain})`).join("\n")}
-
-</details>
+| Domain | Owner | Reason for Removal |
+|-|-|-|
+${invalidDomainData.map((i) => `| ${e.domain}(https://${e.domain}) | @${i.owner.username} | \`${i.error}\` |`).join("\n")}
 `,
             head: `${githubUsername}:cleanup-${runTimestamp}`,
             base: "main",
