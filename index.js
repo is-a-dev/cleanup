@@ -130,9 +130,9 @@ async function forkAndOpenPR(invalidDomains, invalidDomainData) {
             title: "[no-rm] domain cleanup",
             body: `Scanned **${amountScanned}** domain${amountScanned === 1 ? "" : "s"} and found **${invalidDomains.length}** invalid domain${invalidDomains.length === 1 ? "" : "s"}.
 
-| Domain | Owner | Reason for Removal |
+| Domain | Owner | Error Message |
 |-|-|-|
-${invalidDomainData.map((i) => `| ${e.domain}(https://${e.domain}) | @${i.owner.username} | \`${i.error}\` |`).join("\n")}
+${invalidDomainData.map((i) => `| https://${e.domain} | @${i.owner.username} | \`${i.error}\` |`).join("\n")}
 `,
             head: `${githubUsername}:cleanup-${runTimestamp}`,
             base: "main",
