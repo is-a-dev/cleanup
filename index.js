@@ -29,12 +29,6 @@ async function fetchData() {
 
             console.log(chalk.blue(`[INFO] Checking ${domain}...`));
 
-            // Skip if the domain is not pointing to a valid IP address
-            if (!entry.record.A && !entry.record.AAAA && !entry.record.CNAME && !entry.record.URL) {
-                console.log(chalk.yellow(`[INFO] ${domain}: Skipping domain as it is not used for a website.`));
-                continue;
-            }
-
             // Skip if the domain is in the skip list
             if (domainsToSkip.includes(entry.subdomain)) {
                 console.log(chalk.yellow(`[INFO] ${domain}: Skipping domain as it is on the domain skip list.`));
@@ -44,6 +38,18 @@ async function fetchData() {
             // Skip if the owner is in the skip list
             if (usernamesToSkip.includes(entry.owner.username)) {
                 console.log(chalk.yellow(`[INFO] ${domain}: Skipping domain as the owner is on the username skip list.`));
+                continue;
+            }
+
+            // Skip if the domain is not pointing to a website
+            if (!entry.record.A && !entry.record.AAAA && !entry.record.CNAME && !entry.record.URL) {
+                console.log(chalk.yellow(`[INFO] ${domain}: Skipping domain as it is not used for a website.`));
+                continue;
+            }
+
+            // Skip if the domain has email records
+            if (entry.record.MX) {
+                console.log(chalk.yellow(`[INFO] ${domain}: Skipping domain as it is used for emails.`));
                 continue;
             }
 
