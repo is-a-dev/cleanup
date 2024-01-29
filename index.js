@@ -120,7 +120,7 @@ async function forkAndOpenPR(invalidDomains, invalidDomainData) {
 
 | Domain | Owner | Error Message |
 |-|-|-|
-${invalidDomainData.map((i) => `| https://${e.domain} | @${i.owner.username} | \`${i.error}\` |`).join("\n")}
+${invalidDomainData.map((i) => `| https://${i.domain} | @${i.owner.username} | \`${i.error}\` |`).join("\n")}
 `,
             head: `${githubUsername}:main`,
             base: "main",
