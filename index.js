@@ -29,6 +29,8 @@ async function fetchData() {
             const domain = entry.domain;
             const domainUrl = `https://${domain}`;
 
+            console.log(chalk.blue(`[INFO] Checking ${domain}...`));
+
             // Skip if the domain is not pointing to a valid IP address
             if (!entry.record.A && !entry.record.AAAA && !entry.record.CNAME && !entry.record.URL) {
                 console.log(chalk.yellow(`[INFO] ${domain}: Skipping domain as it is not used for a website.`));
@@ -61,14 +63,14 @@ async function fetchData() {
             }
 
             try {
-                await axios.head(domainUrl);
+                await axios.head(domainUrl, { timeout: 10000 });
             } catch (error) {
                 // Skip if the domain's SSL certificate is invalid
                 if (error.code === "ERR_TLS_CERT_ALTNAME_INVALID") continue;
 
                 // Re-attempt to double check the domain is invalid
                 try {
-                    await axios.head(domainUrl);
+                    await axios.head(domainUrl, { timeout: 10000 });
                 } catch (error) {
                     console.log(chalk.red(`[ERROR] ${domain}: ${error.message}`));
 
