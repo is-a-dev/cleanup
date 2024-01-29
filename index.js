@@ -63,14 +63,14 @@ async function fetchData() {
             }
 
             try {
-                await axios.head(domainUrl, { timeout: 10000 });
+                await axios.head(domainUrl, { timeout: 5000 });
             } catch (error) {
                 // Skip if the domain's SSL certificate is invalid
                 if (error.code === "ERR_TLS_CERT_ALTNAME_INVALID") continue;
 
                 // Re-attempt to double check the domain is invalid
                 try {
-                    await axios.head(domainUrl, { timeout: 10000 });
+                    await axios.head(domainUrl, { timeout: 5000 });
                 } catch (error) {
                     console.log(chalk.red(`[ERROR] ${domain}: ${error.message}`));
 
