@@ -1,15 +1,15 @@
+require("dotenv").config()
+
 const axios = require("axios");
 const chalk = require("chalk");
 const { Octokit } = require("@octokit/rest");
 
-const githubUsername = "GITHUB_USERNAME";
-const githubToken = "GITHUB_PAT_TOKEN";
 const apiUrl = "https://raw-api.is-a.dev";
 
 let amountScanned = 0;
 
-const domainsToSkip = ["LIST", "OF", "SUBDOMAINS"];
-const usernamesToSkip = ["LIST", "OF", "USERNAMES"];
+const domainsToSkip = [];
+const usernamesToSkip = ["is-a-dev"];
 
 async function fetchData() {
     try {
@@ -53,6 +53,12 @@ async function fetchData() {
                 continue;
             }
 
+            // Skip if the domain has NS records
+            if (entry.record.NS) {
+                console.log(chalk.yellow(`[INFO] ${domain}: Skipping domain as it is has delegated nameservers.`));
+                continue;
+            }
+
             // If nested subdomain, check root subdomain exists
             if (entry.subdomain.split(".").length > 1) {
                 const rootSubdomain = entry.subdomain.split(".").pop();
@@ -66,24 +72,38 @@ async function fetchData() {
                     invalidDomainData.push(entry);
                     continue;
                 }
-            }
 
-            try {
-                await axios.head(domainUrl, { timeout: 5000 });
-            } catch (error) {
-                // Skip if the domain's SSL certificate is invalid
-                if (error.code === "ERR_TLS_CERT_ALTNAME_INVALID") continue;
+                // Remove if root domain has NS records
+                const rootSubdomainData = data.find((e) => e.subdomain === rootSubdomain);
 
-                // Re-attempt to double check the domain is invalid
-                try {
-                    await axios.head(domainUrl, { timeout: 5000 });
-                } catch (error) {
-                    console.log(chalk.red(`[ERROR] ${domain}: ${error.message}`));
+                if (rootSubdomainData.record.NS) {
+                    console.log(chalk.red(`[ERROR] ${domain}: Root subdomain has delegated nameservers, deleting nested subdomain.`));
 
-                    entry.error = error.message;
+                    entry.error = "Root subdomain has delegated nameservers";
 
                     invalidDomains.push(entry.subdomain);
                     invalidDomainData.push(entry);
+                    continue;
+                }
+            }
+
+            try {
+                await axios.head(entry.record.URL ? entry.record.URL : domainUrl, { timeout: 5000 });
+            } catch (error) {
+                // Re-attempt to double check the domain is invalid
+                try {
+                    await axios.head(entry.record.URL ? entry.record.URL : domainUrl, { timeout: 5000 });
+                } catch (error) {
+                    console.log(chalk.red(`[ERROR] ${domain}: ${error.message}`));
+
+                    if(error.message) {
+                        entry.error = error.message;
+
+                        invalidDomains.push(entry.subdomain);
+                        invalidDomainData.push(entry);
+                    } else {
+                        continue;
+                    }
                 }
             }
         }
@@ -99,7 +119,7 @@ async function fetchData() {
 }
 
 async function forkAndOpenPR(invalidDomains, invalidDomainData) {
-    const octokit = new Octokit({ auth: githubToken });
+    const octokit = new Octokit({ auth: process.env.githubToken });
 
     try {
         // Fork the repository
@@ -121,25 +141,28 @@ async function forkAndOpenPR(invalidDomains, invalidDomainData) {
         const prResponse = await octokit.pulls.create({
             owner: "is-a-dev",
             repo: "register",
-            title: "[no-rm] domain cleanup",
+            title: "automated domain cleanup",
             body: `Scanned **${amountScanned}** domain${amountScanned === 1 ? "" : "s"} and found **${invalidDomains.length}** invalid domain${invalidDomains.length === 1 ? "" : "s"}.
 
 | Domain | Owner | Error Message |
 |-|-|-|
-${invalidDomainData.map((i) => `| https://${i.domain} | @${i.owner.username} | \`${i.error}\` |`).join("\n")}
+${invalidDomainData.map((i) => `| ${i.domain} | @${i.owner.username} | \`${i.error}\` |`).join("\n")}
 `,
-            head: `${githubUsername}:main`,
+            head: `${process.env.githubUsername}:main`,
             base: "main",
-        });
+        })
 
         console.log(chalk.green(`[INFO] Pull request opened: ${prResponse.data.html_url}`));
+
+        process.exit(0);
     } catch (error) {
-        console.log(chalk.red(`[ERROR] Forking repository, creating branch or opening PR: ${error.message}`));
+        console.log(chalk.red(`[ERROR] Forking repository, creating branch, opening PR or sending emails: ${error.message}`));
+        process.exit(1);
     }
 }
 
 async function deleteInvalidFiles(invalidDomains, repoFullName) {
-    const octokit = new Octokit({ auth: githubToken });
+    const octokit = new Octokit({ auth: process.env.githubToken });
 
     for (const domain of invalidDomains) {
         const fileName = `domains/${domain}.json`;
