@@ -21,8 +21,7 @@ const usernamesToSkip = [
     "orangci",
     "Stef-00012",
     "JustDeveloper1",
-    "DevMatei",
-    "MaskDuck"
+    "DevMatei"
 ];
 
 async function fetchData() {
