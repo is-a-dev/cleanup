@@ -20,6 +20,7 @@ const usernamesToSkip = [
     "NullyIsHere",
     "orangci",
     "Stef-00012",
+    "SX-9",
     "JustDeveloper1",
     "DevMatei"
 ];
