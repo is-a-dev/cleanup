@@ -17,7 +17,6 @@ const usernamesToSkip = [
     "Baraban511",
     "DEV-DIBSTER",
     "iostpa",
-    "NullyIsHere",
     "orangci",
     "Stef-00012",
     "SX-9",
